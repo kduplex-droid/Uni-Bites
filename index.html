@@ -811,6 +811,19 @@ textarea.form-input{height:120px;resize:vertical;font-size:11px;font-family:mono
   </div>
 </div>
 
+<div id="admin-gate-screen" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; bg: var(--bg); background: rgba(13,13,13,0.95); z-index: 1000; align-items: center; justify-content: center; flex-direction: column; font-family: 'Space Grotesk', sans-serif;">
+  <div style="background: var(--surface); border: 1px solid var(--border); padding: 2rem; border-radius: 12px; width: 90%; max-width: 400px; text-align: center;">
+    <h2 style="color: var(--orange); margin-bottom: 1.5rem;">Admin Access</h2>
+    <input type="email" id="admin-email" placeholder="Admin Email" style="width: 100%; padding: 0.8rem; background: var(--s2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); margin-bottom: 1rem; font-family: inherit;">
+    <input type="password" id="admin-password" placeholder="Password" style="width: 100%; padding: 0.8rem; background: var(--s2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); margin-bottom: 1.5rem; font-family: inherit;">
+    <div style="display: flex; gap: 1rem;">
+      <button id="admin-login-submit-btn" style="flex: 1; padding: 0.8rem; background: var(--orange); border: none; border-radius: 6px; color: var(--bg); font-weight: bold; cursor: pointer; font-family: inherit;">Login</button>
+      <button onclick="document.getElementById('admin-gate-screen').style.display = 'none'" style="padding: 0.8rem; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); cursor: pointer; font-family: inherit;">Cancel</button>
+    </div>
+    <p id="admin-gate-error" style="color: var(--red); margin-top: 1rem; display: none; font-size: 0.9rem;"></p>
+  </div>
+</div>
+  
 <script>
 /* ============================================================
  * MUNCHIE v2 — FIREBASE-POWERED SNACK SHOP
@@ -852,13 +865,93 @@ function saveSetup() {
   }
 }
 
-// ── FIREBASE INIT ──────────────────────────────────────────
-let auth, db, storage;
+// ── FIREBASE INITIALIZATION & AUTH ──────────────────────────
+let db;
+let auth;
+let storage;
+
+// TODO: Replace with your actual email address
+const AUTHORIZED_ADMINS = ['k.duplex16@gmail.com'];
+
 function initFirebase() {
-  firebase.initializeApp(FIREBASE_CONFIG);
-  auth = firebase.auth();
-  db = firebase.firestore();
-  storage = firebase.storage();
+  try {
+    const configString = localStorage.getItem('firebase_config');
+    if (!configString) throw new Error("No configuration found in localStorage.");
+    
+    const config = JSON.parse(configString);
+    
+    // Initialize Core Firebase App
+    firebase.initializeApp(config);
+    
+    // Bind services globally
+    db = firebase.firestore();
+    auth = firebase.auth();
+    storage = firebase.storage();
+    
+    console.log("Firebase services successfully initialized.");
+    setupAuthObserver(); 
+  } catch (error) {
+    console.error("Initialization failed:", error);
+    document.getElementById('setup-screen').style.display = 'flex';
+    document.getElementById('top-nav').style.display = 'none';
+  }
+}
+
+function setupAuthObserver() {
+  auth.onAuthStateChanged((user) => {
+    // Finds your existing admin dashboard section
+    const adminPanel = document.getElementById('admin-panel'); 
+    
+    if (user) {
+      if (AUTHORIZED_ADMINS.includes(user.email.toLowerCase())) {
+        console.log("Access Granted: Administrator verified.");
+        if (adminPanel) adminPanel.style.display = 'block';
+      } else {
+        console.warn("Access Denied: Restricting standard user profile.");
+        if (adminPanel) adminPanel.style.display = 'none';
+      }
+    } else {
+      if (adminPanel) adminPanel.style.display = 'none';
+    }
+  });
+}
+
+// Secret Keyboard Shortcut (Ctrl + Shift + A)
+window.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+    e.preventDefault();
+    document.getElementById('admin-gate-screen').style.display = 'flex';
+    document.getElementById('admin-email').focus();
+  }
+});
+
+// Handler for the hidden login form submission
+function handleAdminLogin() {
+  const email = document.getElementById('admin-email').value.trim();
+  const password = document.getElementById('admin-password').value;
+  const errorEl = document.getElementById('admin-gate-error');
+  
+  if (errorEl) errorEl.style.display = 'none';
+  
+  if (!email || !password) {
+    if (errorEl) { errorEl.textContent = "Please fill in all fields."; errorEl.style.display = 'block'; }
+    return;
+  }
+
+  if (!AUTHORIZED_ADMINS.includes(email.toLowerCase())) {
+    if (errorEl) { errorEl.textContent = "Invalid administrative credentials."; errorEl.style.display = 'block'; }
+    return;
+  }
+
+  auth.signInWithEmailAndPassword(email, password)
+    .then(() => {
+      document.getElementById('admin-email').value = '';
+      document.getElementById('admin-password').value = '';
+      document.getElementById('admin-gate-screen').style.display = 'none';
+    })
+    .catch((error) => {
+      if (errorEl) { errorEl.textContent = "Authentication failed: " + error.message; errorEl.style.display = 'block'; }
+    });
 }
 
 // ── STATE ──────────────────────────────────────────────────
@@ -1548,6 +1641,8 @@ function initApp() {
   checkEmailLink();
   startProductListener();
   setCampus('upper');
+  
+  document.getElementById('admin-login-submit-btn').addEventListener('click', handleAdminLogin);
 }
 
 // ── BOOTSTRAP ─────────────────────────────────────────────
