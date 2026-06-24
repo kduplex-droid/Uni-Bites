@@ -18,3 +18,6 @@ googleButton.addEventListener("click", () => {
       console.error("Sign-in failed:", error.message);
     });
 });
+// This will print your active project details to the console
+console.log("Firebase initialized! Connected to Project ID:", auth.app.options.projectId);
+
