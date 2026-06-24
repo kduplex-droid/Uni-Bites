@@ -19,5 +19,5 @@ googleButton.addEventListener("click", () => {
     });
 });
 // This will print your active project details to the console
-console.log("Firebase initialized! Connected to Project ID:", auth.app.options.projectId);
+console.log("Firebase initialized! Connected to Project ID:unibites-c4d7b", auth.app.options.projectId);
 
